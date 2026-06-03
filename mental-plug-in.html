@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Matrice · v3</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06060c;--surface:#0e0e1a;--surface2:#131320;
+  --border:#1e1e38;--text:#c4c4e0;--dim:#44446a;
+  --accent:#b432ff;--gold:#fac800;
+}
+body{background:var(--bg);color:var(--text);font-family:'Courier Prime',monospace;
+  display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px 14px 60px}
+
+/* HEADER */
+header{width:100%;max-width:1060px;margin-bottom:20px;border-bottom:1px solid var(--border);
+  padding-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end}
+h1{font-family:'Space Mono',monospace;font-size:clamp(11px,1.8vw,14px);
+  letter-spacing:.32em;text-transform:uppercase;color:var(--accent);line-height:1.5}
+.hdr-sub{font-size:9.5px;color:var(--dim);letter-spacing:.1em;font-style:italic;text-align:right;line-height:1.6}
+
+/* LAYOUT: canvas left, panel right */
+.main-layout{width:100%;max-width:1060px;display:grid;
+  grid-template-columns:1fr 320px;gap:16px;align-items:start}
+
+/* CANVAS */
+#canvas-wrap{border:1px solid var(--border);background:#03030a;
+  position:relative;overflow:hidden;cursor:crosshair}
+#canvas-wrap canvas{display:block}
+
+/* PANEL */
+.panel{display:flex;flex-direction:column;gap:10px}
+.block{background:var(--surface);border:1px solid var(--border);padding:12px}
+.lbl{display:block;font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:8px;font-family:'Space Mono',monospace}
+
+textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
+  font-family:'Courier Prime',monospace;font-size:12.5px;line-height:1.65;padding:8px;
+  resize:vertical;min-height:80px;outline:none;transition:border-color .2s}
+textarea:focus{border-color:var(--accent)}
+textarea::placeholder{color:var(--dim);font-style:italic;font-size:11.5px}
+
+.stochastic-out{width:100%;background:var(--bg);border:1px solid var(--border);
+  color:var(--gold);font-family:'Courier Prime',monospace;font-size:12px;
+  line-height:1.7;padding:8px;min-height:60px;font-style:italic;
+  white-space:pre-wrap;display:none}
+.stochastic-out.visible{display:block}
+
+/* SLIDERS */
+.slider-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.slider-row label{font-size:9.5px;color:var(--dim);width:100px;flex-shrink:0;font-family:'Space Mono',monospace}
+input[type=range]{flex:1;accent-color:var(--accent);height:2px;cursor:pointer}
+.slider-val{font-size:9px;color:var(--accent);width:28px;text-align:right;font-family:'Space Mono',monospace}
+
+/* UPLOAD */
+.upload-zone{border:1px dashed var(--border);padding:10px 8px;text-align:center;
+  cursor:pointer;transition:border-color .2s;position:relative;overflow:hidden}
+.upload-zone:hover{border-color:var(--accent)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-zone .uz-text{font-size:10px;color:var(--dim);font-style:italic;pointer-events:none}
+#uploads-list{display:flex;flex-direction:column;gap:5px;margin-top:7px}
+.upload-item{display:flex;align-items:center;gap:6px;font-size:9.5px;background:var(--bg);
+  border:1px solid var(--border);padding:4px 7px}
+.upload-thumb{width:28px;height:28px;object-fit:cover;border:1px solid var(--border)}
+.upload-name{color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic}
+.upload-rm{color:#ff5555;cursor:pointer;font-size:11px;font-family:'Space Mono',monospace;flex-shrink:0}
+.upload-rm:hover{color:#ff8888}
+
+/* BUTTONS */
+.btn-row{display:flex;gap:6px;margin-top:8px}
+button{flex:1;background:transparent;border:1px solid var(--accent);color:var(--accent);
+  font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;
+  padding:8px 5px;cursor:pointer;transition:background .18s,color .18s}
+button:hover:not(:disabled){background:var(--accent);color:var(--bg)}
+button:disabled{opacity:.35;cursor:not-allowed}
+.btn-dim{border-color:var(--dim);color:var(--dim)}
+.btn-dim:hover:not(:disabled){background:var(--dim);color:var(--bg)}
+
+.status{font-size:9px;color:var(--dim);letter-spacing:.08em;font-style:italic;margin-top:6px;min-height:13px}
+.status.active{color:var(--accent)}.status.error{color:#ff5555}
+
+/* RESULT */
+#result-block{display:none;padding:12px;background:var(--surface);border:1px solid var(--border)}
+#result-block.visible{display:block}
+.res-bar{height:2px;width:100%;margin-bottom:9px;border-radius:1px}
+.res-top{display:flex;align-items:baseline;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.res-shape{font-family:'Space Mono',monospace;font-size:14px;font-weight:700}
+.res-matrice{font-size:9.5px;color:var(--dim);letter-spacing:.1em;font-style:italic}
+.res-words{font-size:9.5px;color:var(--dim);margin-bottom:7px;font-style:italic;line-height:1.5}
+.res-reasoning{font-size:11px;line-height:1.65;color:var(--text);
+  border-top:1px solid var(--border);padding-top:7px;margin-bottom:8px}
+
+/* DATES */
+.dates-block{margin-top:6px;border-top:1px solid var(--border);padding-top:8px}
+.dates-title{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);
+  font-family:'Space Mono',monospace;margin-bottom:6px}
+.dates-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.date-pill{background:var(--bg);border:1px solid var(--border);padding:4px 7px;
+  font-size:9.5px;font-family:'Space Mono',monospace}
+.date-num{color:var(--gold);font-weight:700}
+.date-label{color:var(--dim);font-size:8.5px;display:block;margin-top:1px;font-style:italic}
+
+/* ASTRO BADGES */
+.astro-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.astro-badge{font-size:8.5px;padding:2px 6px;border:1px solid var(--border);
+  color:var(--dim);font-family:'Space Mono',monospace}
+
+/* MATRIX LEGEND */
+.matrix-block{background:var(--surface);border:1px solid var(--border);padding:12px}
+.mrow{display:grid;grid-template-columns:10px 1fr auto;align-items:center;
+  gap:6px;padding:2.5px 0;border-bottom:1px solid #14142a;font-size:10px}
+.mrow:last-child{border-bottom:none}
+.mrow-sub{grid-column:2/-1;font-size:8.5px;color:var(--dim);margin-top:-1px;margin-bottom:1px;font-style:italic}
+
+/* MANIFEST */
+.manifest-strip{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:flex;gap:5px}
+.btn-download{background:transparent;border:1px solid var(--gold);color:var(--gold);
+  font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.15em;text-transform:uppercase;
+  padding:6px 8px;cursor:pointer;transition:background .18s,color .18s;flex:1}
+.btn-download:hover{background:var(--gold);color:var(--bg)}
+.manifest-badge{font-size:8.5px;padding:3px 7px;border:1px solid var(--border);
+  color:var(--dim);font-family:'Space Mono',monospace;display:flex;align-items:center;gap:4px}
+.manifest-badge .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+@media(max-width:720px){
+  .main-layout{grid-template-columns:1fr}
+  header{flex-direction:column;gap:5px;align-items:flex-start}
+  .hdr-sub{text-align:left}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>La Matrice</h1>
+    <div style="font-size:9.5px;color:var(--dim);margin-top:2px;letter-spacing:.07em;font-style:italic">
+      semantic field · color × geometry × time · stochastic resonance
+    </div>
+  </div>
+  <div class="hdr-sub">text → la matrice → shape → color<br>astrology weighted · dates named · past versions inform</div>
+</header>
+
+<div class="main-layout">
+  <div id="canvas-wrap"></div>
+
+  <div class="panel">
+
+    <!-- INPUT -->
+    <div class="block">
+      <span class="lbl">Intention / text</span>
+      <textarea id="txt" placeholder="a feeling, moment, memory, intention…&#10;&#10;'the weight of staying when I wanted to leave'"></textarea>
+      <div class="stochastic-out" id="stoch-out"></div>
+    </div>
+
+    <!-- WEIGHTS -->
+    <div class="block">
+      <span class="lbl">Weights</span>
+      <div class="slider-row">
+        <label>astrology</label>
+        <input type="range" id="sl-astro" min="0" max="100" value="40">
+        <span class="slider-val" id="sv-astro">40</span>
+      </div>
+      <div class="slider-row">
+        <label>past images</label>
+        <input type="range" id="sl-past" min="0" max="100" value="55">
+        <span class="slider-val" id="sv-past">55</span>
+      </div>
+      <div class="slider-row">
+        <label>stochastic</label>
+        <input type="range" id="sl-stoch" min="0" max="100" value="30">
+        <span class="slider-val" id="sv-stoch">30</span>
+      </div>
+    </div>
+
+    <!-- PAST VERSIONS UPLOAD -->
+    <div class="block">
+      <span class="lbl">Past versions · images or .matrice</span>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept="image/*,.matrice,application/json" multiple>
+        <div class="uz-text">drop images or .matrice files here<br>or click to upload</div>
+      </div>
+      <div id="uploads-list"></div>
+    </div>
+
+    <!-- CLASSIFY -->
+    <div class="block">
+      <div id="status" class="status">ready · click canvas to scatter shapes</div>
+      <div class="btn-row">
+        <button id="classify-btn">classify → draw</button>
+        <button id="clear-btn" class="btn-dim">clear field</button>
+      </div>
+    </div>
+
+    <!-- RESULT -->
+    <div id="result-block">
+      <div class="res-bar" id="result-bar"></div>
+      <div class="res-top">
+        <div class="res-shape" id="result-shape"></div>
+        <div class="res-matrice" id="result-matrice"></div>
+      </div>
+      <div class="res-words" id="result-words"></div>
+      <div class="res-reasoning" id="result-reasoning"></div>
+      <div class="astro-row" id="astro-row"></div>
+      <div class="dates-block">
+        <div class="dates-title">Resonant Dates</div>
+        <div class="dates-grid" id="dates-grid"></div>
+      </div>
+      <div class="manifest-strip">
+        <button class="btn-download" id="download-btn">↓ save .matrice</button>
+        <div class="manifest-badge" id="manifest-badge" style="display:none">
+          <div class="dot" id="manifest-dot"></div>
+          <span id="manifest-label"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MATRIX LEGEND -->
+    <div class="matrix-block">
+      <span class="lbl">La Matrice</span>
+      <div id="matrix-legend"></div>
+    </div>
+
+  </div><!-- /panel -->
+</div><!-- /main-layout -->
+
+<script>
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let lastResult = null;       // full API result object
+let lastCanvasDataUrl = null; // snapshot for embedding in manifest
+
+// ═══════════════════════════════════════════════════
+// LA MATRICE
+// ═══════════════════════════════════════════════════
+const MATRICE = [
+  { name:"grey",   r:170,g:170,b:170, hex:"#aaaaaa",
+    matrice1:"Cover",      matrice:"lose",
+    words:["respectful","effective","apposite","precary"], shape:"line",
+    drawFn:(p,x,y,sz)=>{ p.line(x-sz*.42,y,x+sz*.42,y); p.line(x-sz*.28,y-sz*.08,x+sz*.28,y-sz*.08); }
+  },
+  { name:"pink",   r:250,g:0,  b:90,  hex:"#fa005a",
+    matrice1:"Category",   matrice:"place",
+    words:["incredibly","exquisite","ambitious"], shape:"angle/place",
+    drawFn:(p,x,y,sz)=>{ p.line(x-sz*.32,y+sz*.26,x,y-sz*.26); p.line(x,y-sz*.26,x+sz*.32,y+sz*.26); }
+  },
+  { name:"gold",   r:250,g:200,b:0,   hex:"#fac800",
+    matrice1:"Pull",       matrice:"hide",
+    words:["undepartable","preflorating","technocracy","lotiform"], shape:"circle",
+    drawFn:(p,x,y,sz)=>{ p.noFill(); p.ellipse(x,y,sz*.58,sz*.58); p.ellipse(x,y,sz*.3,sz*.3); }
+  },
+  { name:"nude",   r:250,g:180,b:120, hex:"#fab478",
+    matrice1:"Approach",   matrice:"jump",
+    words:["felicitously","deft","satisfied","unextenuable"], shape:"triangle",
+    drawFn:(p,x,y,sz)=>{ p.noFill(); p.triangle(x,y-sz*.32,x-sz*.26,y+sz*.22,x+sz*.26,y+sz*.22); }
+  },
+  { name:"orange", r:250,g:110,b:0,   hex:"#fa6e00",
+    matrice1:"Hit",        matrice:"drop",
+    words:["blurry","artesian","awesome"], shape:"dot",
+    drawFn:(p,x,y,sz)=>{ p.ellipse(x,y,sz*.18,sz*.18); p.noFill(); p.ellipse(x,y,sz*.38,sz*.38); }
+  },
+  { name:"white",  r:255,g:255,b:255, hex:"#ffffff",
+    matrice1:"Hope",       matrice:"block",
+    words:["unlavish","analeptical"], shape:"rectangle",
+    drawFn:(p,x,y,sz)=>{ p.noFill(); p.rect(x-sz*.32,y-sz*.2,sz*.64,sz*.4); p.line(x-sz*.12,y-sz*.2,x-sz*.12,y+sz*.2); }
+  },
+  { name:"blue",   r:0,  g:0,  b:255, hex:"#0000ff",
+    matrice1:"Collect",    matrice:"glean",
+    words:["daintily","perfect","intelligent","photopathy"], shape:"sphere",
+    drawFn:(p,x,y,sz)=>{ p.noFill(); p.ellipse(x,y,sz*.56,sz*.56); p.ellipse(x,y,sz*.56,sz*.22); p.line(x,y-sz*.28,x,y+sz*.28); }
+  },
+  { name:"green",  r:0,  g:255,b:0,   hex:"#00ff00",
+    matrice1:"Transition", matrice:"grow",
+    words:["bulbous","spontaneous","heroic"], shape:"pyramid",
+    drawFn:(p,x,y,sz)=>{ p.noFill(); p.triangle(x,y-sz*.36,x-sz*.3,y+sz*.22,x+sz*.3,y+sz*.22);
+      p.line(x-sz*.3,y+sz*.22,x-sz*.1,y+sz*.06); p.line(x+sz*.3,y+sz*.22,x+sz*.1,y+sz*.06);
+      p.line(x-sz*.1,y+sz*.06,x+sz*.1,y+sz*.06); p.line(x,y-sz*.36,x-sz*.1,y+sz*.06); p.line(x,y-sz*.36,x+sz*.1,y+sz*.06); }
+  },
+  { name:"red",    r:255,g:0,  b:0,   hex:"#ff0000",
+    matrice1:"Limit",      matrice:"cry",
+    words:["candid","apophantic","distinct","radical"], shape:"cube",
+    drawFn:(p,x,y,sz)=>{ const s=sz*.24,o=sz*.12; p.noFill();
+      p.rect(x-s,y-s,s*2,s*2); p.rect(x-s+o,y-s-o,s*2,s*2);
+      p.line(x-s,y-s,x-s+o,y-s-o); p.line(x+s,y-s,x+s+o,y-s-o);
+      p.line(x+s,y+s,x+s+o,y+s-o); p.line(x-s,y+s,x-s+o,y+s-o); }
+  },
+  { name:"black",  r:0,  g:0,  b:0,   hex:"#000000", hexDisplay:"#888888",
+    matrice1:"Order",      matrice:"scale",
+    words:["undertreated","paleoatavistic","swabble"], shape:"dot",
+    drawFn:(p,x,y,sz)=>{ p.stroke(130,130,160,200); p.ellipse(x,y,sz*.14,sz*.14); p.noFill(); p.ellipse(x,y,sz*.52,sz*.52); p.ellipse(x,y,sz*.82,sz*.82); }
+  },
+  { name:"brown",  r:180,g:50, b:0,   hex:"#b43200",
+    matrice1:"Learn",      matrice:"shrink",
+    words:["abundantly","notable","unique","submissive"], shape:"angle/place",
+    drawFn:(p,x,y,sz)=>{ p.line(x-sz*.36,y+sz*.28,x,y-sz*.22); p.line(x,y-sz*.22,x+sz*.36,y+sz*.28); p.line(x-sz*.15,y+sz*.28,x+sz*.15,y+sz*.28); }
+  },
+  { name:"yellow", r:255,g:255,b:0,   hex:"#ffff00",
+    matrice1:"Structure",  matrice:"array",
+    words:["exhilarating","redressible","authority"], shape:"rectangle",
+    drawFn:(p,x,y,sz)=>{ p.noFill(); p.rect(x-sz*.36,y-sz*.22,sz*.72,sz*.44); p.rect(x-sz*.22,y-sz*.12,sz*.44,sz*.24); }
+  },
+  { name:"purple", r:180,g:50, b:255, hex:"#b432ff",
+    matrice1:"Free",       matrice:"cheer",
+    words:["perfectly","great","imaginative","brave"], shape:"sphere",
+    drawFn:(p,x,y,sz)=>{ p.noFill(); p.ellipse(x,y,sz*.58,sz*.58); p.push(); p.rotate(Math.PI/4); p.ellipse(0,0,sz*.58,sz*.2); p.pop(); }
+  }
+];
+
+// ═══════════════════════════════════════════════════
+// LEGEND
+// ═══════════════════════════════════════════════════
+const legendEl = document.getElementById('matrix-legend');
+MATRICE.forEach(m=>{
+  const dh=m.hexDisplay||m.hex;
+  const d=document.createElement('div'); d.className='mrow';
+  d.innerHTML=`<div style="width:10px;height:10px;border-radius:2px;background:${dh};border:1px solid #222;"></div>
+    <span style="font-style:italic">${m.name}</span>
+    <span style="font-size:8px;color:var(--dim);font-family:'Space Mono',monospace">${m.matrice1}/${m.matrice}</span>
+    <div class="mrow-sub">${m.words.join(' · ')}</div>`;
+  legendEl.appendChild(d);
+});
+
+// ═══════════════════════════════════════════════════
+// SLIDERS
+// ═══════════════════════════════════════════════════
+['astro','past','stoch'].forEach(k=>{
+  const sl=document.getElementById('sl-'+k);
+  const sv=document.getElementById('sv-'+k);
+  sl.addEventListener('input',()=>sv.textContent=sl.value);
+});
+
+// ═══════════════════════════════════════════════════
+// UPLOADS — images AND .matrice manifests
+// ═══════════════════════════════════════════════════
+let uploadedImages = []; // [{name, dataUrl, base64, mimeType, isManifest, manifest}]
+
+document.getElementById('file-input').addEventListener('change', e=>{
+  [...e.target.files].forEach(file=>handleUploadFile(file));
+  e.target.value='';
+});
+
+function handleUploadFile(file){
+  const isManifest = file.name.endsWith('.matrice') || file.type === 'application/json';
+  const reader = new FileReader();
+  if(isManifest){
+    reader.onload = ev => {
+      try{
+        const manifest = JSON.parse(ev.target.result);
+        // use the thumbnail from the manifest as the preview image, or a generated placeholder
+        const thumb = manifest.canvas_thumbnail || null;
+        uploadedImages.push({
+          name: file.name,
+          dataUrl: thumb,
+          base64: thumb ? thumb.split(',')[1] : null,
+          mimeType: 'image/png',
+          isManifest: true,
+          manifest: manifest
+        });
+        renderUploads();
+      }catch(e){ console.error('Invalid .matrice file',e); }
+    };
+    reader.readAsText(file);
+  } else {
+    reader.onload = ev => {
+      const dataUrl = ev.target.result;
+      uploadedImages.push({
+        name: file.name,
+        dataUrl,
+        base64: dataUrl.split(',')[1],
+        mimeType: file.type || 'image/png',
+        isManifest: false,
+        manifest: null
+      });
+      renderUploads();
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function renderUploads(){
+  const list = document.getElementById('uploads-list');
+  list.innerHTML = '';
+  uploadedImages.forEach((img,i)=>{
+    const d = document.createElement('div'); d.className='upload-item';
+    const thumbHtml = img.dataUrl
+      ? `<img class="upload-thumb" src="${img.dataUrl}">`
+      : `<div class="upload-thumb" style="background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--dim)">.m</div>`;
+    const badge = img.isManifest
+      ? `<span style="font-size:7.5px;color:var(--gold);font-family:'Space Mono',monospace;margin-left:2px">.matrice</span>`
+      : '';
+    d.innerHTML = `${thumbHtml}
+      <span class="upload-name">${img.name}${badge}</span>
+      <span class="upload-rm" data-i="${i}">✕</span>`;
+    list.appendChild(d);
+  });
+  list.querySelectorAll('.upload-rm').forEach(btn=>{
+    btn.addEventListener('click',()=>{ uploadedImages.splice(+btn.dataset.i,1); renderUploads(); });
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// PARTICLES
+// ═══════════════════════════════════════════════════
+let particles=[];
+let pastColorSeeds=[]; // ghost colors from uploaded images (extracted dominant RGB)
+let currentEntry=null;
+
+class Particle{
+  constructor(x,y,entry,opts={}){
+    this.x=x; this.y=y; this.entry=entry;
+    this.vx=(Math.random()-.5)*(opts.speed||.35);
+    this.vy=(Math.random()-.5)*(opts.speed||.35);
+    this.life=1; this.decay=opts.decay||((.0007+Math.random()*.0005));
+    this.size=(opts.sizeMin||55)+Math.random()*(opts.sizeRange||85);
+    this.angle=Math.random()*Math.PI*2;
+    this.spin=(Math.random()-.5)*.007;
+    this.alpha=0; this.fadeIn=true;
+    this.ghost=opts.ghost||false; // past-version ghost particle
+  }
+  update(){
+    this.x+=this.vx; this.y+=this.vy; this.angle+=this.spin;
+    if(this.fadeIn){this.alpha=Math.min(1,this.alpha+.03);if(this.alpha>=1)this.fadeIn=false;}
+    this.life-=this.decay;
+  }
+  draw(p){
+    const a=Math.max(0,this.life*this.alpha);
+    const e=this.entry;
+    let dr=e.name==='black'?120:e.r;
+    let dg=e.name==='black'?120:e.g;
+    let db=e.name==='black'?150:e.b;
+    if(this.ghost){
+      // ghost from past image — dimmer, different weight
+      p.push(); p.translate(this.x,this.y); p.rotate(this.angle);
+      p.stroke(dr,dg,db,a*90); p.fill(dr,dg,db,a*8); p.strokeWeight(.7);
+      e.drawFn(p,0,0,this.size);
+      p.pop();
+    } else {
+      p.push(); p.translate(this.x,this.y); p.rotate(this.angle);
+      p.stroke(dr,dg,db,a*210); p.fill(dr,dg,db,a*16); p.strokeWeight(1.1);
+      e.drawFn(p,0,0,this.size);
+      p.pop();
+    }
+  }
+  get dead(){return this.life<=0;}
+}
+
+// ═══════════════════════════════════════════════════
+// P5 SKETCH
+// ═══════════════════════════════════════════════════
+let p5ref=null;
+const sketch=p=>{
+  p.setup=()=>{
+    const wrap=document.getElementById('canvas-wrap');
+    const w=wrap.offsetWidth,h=Math.round(w*.9);
+    wrap.style.height=h+'px';
+    p.createCanvas(w,h).parent('canvas-wrap');
+    p.background(3,3,10);
+  };
+  p.draw=()=>{
+    p.background(3,3,10,13);
+    // grid
+    p.stroke(18,18,40,45); p.strokeWeight(.35);
+    for(let x=0;x<p.width;x+=36)p.line(x,0,x,p.height);
+    for(let y=0;y<p.height;y+=36)p.line(0,y,p.width,y);
+    particles=particles.filter(pt=>!pt.dead);
+    particles.forEach(pt=>{pt.update();pt.draw(p);});
+    if(particles.length===0){
+      p.fill(50,25,80,70); p.noStroke(); p.textSize(10);
+      p.textAlign(p.CENTER,p.CENTER); p.textFont('Courier Prime');
+      p.text('enter intention · classify · la matrice materialises',p.width/2,p.height/2);
+    }
+  };
+  p.mousePressed=()=>{
+    const e=currentEntry||MATRICE[Math.floor(Math.random()*MATRICE.length)];
+    for(let i=0;i<3;i++) particles.push(new Particle(
+      p.mouseX+(Math.random()-.5)*20,p.mouseY+(Math.random()-.5)*20,e));
+  };
+};
+p5ref=new p5(sketch);
+
+// ═══════════════════════════════════════════════════
+// SPAWN HELPERS
+// ═══════════════════════════════════════════════════
+function spawnMain(entry,count,W,H){
+  for(let i=0;i<count;i++) setTimeout(()=>{
+    particles.push(new Particle(W*.1+Math.random()*W*.8,H*.1+Math.random()*H*.8,entry));
+  },i*65);
+}
+
+function spawnGhosts(entry,count,W,H,pastWeight){
+  // spawn ghost particles for past-version influence
+  if(!uploadedImages.length||pastWeight<5) return;
+  const ghostCount=Math.round(count*(pastWeight/100)*0.7);
+  for(let i=0;i<ghostCount;i++) setTimeout(()=>{
+    particles.push(new Particle(W*.05+Math.random()*W*.9,H*.05+Math.random()*H*.9,entry,
+      {ghost:true,sizeMin:40,sizeRange:120,speed:.18,decay:.0004}));
+  },i*90+200);
+}
+
+// ═══════════════════════════════════════════════════
+// CURRENT DATE HELPERS
+// ═══════════════════════════════════════════════════
+function todayStr(){
+  const d=new Date();
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function fmtDate(d){
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════════════════
+// SYSTEM PROMPT
+// ═══════════════════════════════════════════════════
+function buildSystem(astroWeight,pastWeight,stochWeight,hasPastImages){
+  const today=todayStr();
+  return `You are La Matrice — a semantic-astrological color-geometry classifier. Today's date is ${today}.
+
+LA MATRICE (exact RGB and semantic codes):
+grey   r170 g170 b170 | Cover/lose      | respectful, effective, apposite, precary
+pink   r250 g0   b90  | Category/place  | incredibly, exquisite, ambitious
+gold   r250 g200 b0   | Pull/hide       | undepartable, preflorating, technocracy, lotiform
+nude   r250 g180 b120 | Approach/jump   | felicitously, deft, satisfied, unextenuable
+orange r250 g110 b0   | Hit/drop        | blurry, artesian, awesome
+white  r255 g255 b255 | Hope/block      | unlavish, analeptical
+blue   r0   g0   b255 | Collect/glean   | daintily, perfect, intelligent, photopathy
+green  r0   g255 b0   | Transition/grow | bulbous, spontaneous, heroic
+red    r255 g0   b0   | Limit/cry       | candid, apophantic, distinct, radical
+black  r0   g0   b0   | Order/scale     | undertreated, paleoatavistic, swabble
+brown  r180 g50  b0   | Learn/shrink    | abundantly, notable, unique, submissive
+yellow r255 g255 b0   | Structure/array | exhilarating, redressible, authority
+purple r180 g50  b255 | Free/cheer      | perfectly, great, imaginative, brave
+
+SHAPE ONTOLOGY:
+dot=ephemeral instant; line=frozen duration; circle=experience cycling; rectangle=oppression/hold;
+sphere=changing perspective; cube=revolution; triangle=move/action; angle/place=grounded belonging; pyramid=growth/aspiration
+
+WEIGHTS for this classification:
+- Semantic/text weight: ${100-astroWeight}%
+- Astrology weight: ${astroWeight}% — use current planetary transits, moon phase, and the date ${today} to inflect the color choice
+- Past images weight: ${pastWeight}% — if past images are provided, honor their dominant colors as a gravitational pull on the new result${hasPastImages?' (past images ARE provided)':' (no past images provided)'}
+- Stochastic variation: ${stochWeight}% — introduce this much entropy/drift into the stochastic text version
+
+ASTROLOGY CONTEXT (use for ${astroWeight}% weight):
+Given today ${today}, consider: current moon phase cycle, seasonal solar position, dominant planetary influences for the week. Let these inflect which color entry feels most resonant — e.g., a waxing moon pulls toward growth/green or hope/white; Saturn transits toward limit/red or order/black; Venus toward pull/gold or free/purple; Mercury toward collect/blue or structure/yellow.
+
+DATES — output 4 specific resonant dates in YYYY.MM.DD format:
+1. A date within 7 days that amplifies the intention
+2. A date 2-4 weeks out aligned with a lunar phase
+3. A seasonal/solstice-adjacent date
+4. A longer-horizon date (3-6 months) for the intention to fully manifest
+
+STOCHASTIC TEXT — produce a stochastic/drift version of the input text that:
+- Preserves the core intention but introduces semantic drift at ${stochWeight}% intensity
+- Replaces some words with words from la matrice's english-words vocabulary
+- May fragment, repeat, or shift tense based on stochastic weight
+- Feels like the text heard through the geometry — transformed but recognizable
+
+${hasPastImages ? `PAST IMAGES: Past versions of this intention have been uploaded. Their visual information (dominant colors, shapes) should act as gravitational influence on the current color choice at ${pastWeight}% weight. Honor the continuity of the intention's color history while allowing the new text to update it.` : ''}
+
+Respond ONLY in valid JSON (no markdown, no extra text):
+{
+  "color": "<exact color name>",
+  "matrice1": "<verb>",
+  "matrice": "<verb>",
+  "words": ["w1","w2","w3"],
+  "shape": "<shape>",
+  "confidence": <0.0-1.0>,
+  "reasoning": "<one sentence explaining the semantic+astrological mapping>",
+  "stochastic_text": "<stochastic version of input>",
+  "dates": [
+    {"date":"YYYY.MM.DD","label":"<short label>","why":"<brief>"},
+    {"date":"YYYY.MM.DD","label":"<short label>","why":"<brief>"},
+    {"date":"YYYY.MM.DD","label":"<short label>","why":"<brief>"},
+    {"date":"YYYY.MM.DD","label":"<short label>","why":"<brief>"}
+  ],
+  "astro_notes": ["<planet/phase note 1>","<planet/phase note 2>"]
+}`;
+}
+
+// ═══════════════════════════════════════════════════
+// BUILD API MESSAGES — images + .matrice manifests
+// ═══════════════════════════════════════════════════
+function buildMessages(text){
+  const content = [];
+
+  if(uploadedImages.length){
+    const pastW = document.getElementById('sl-past').value;
+    uploadedImages.forEach((img,i)=>{
+      if(img.isManifest && img.manifest){
+        // structured manifest — send as rich text context
+        const m = img.manifest;
+        const w = m.weights || {};
+        const manifestText = `Past version ${i+1} — La Matrice manifest (weight: ${pastW}%):\n- Date recorded: ${m.recorded_at||'unknown'}\n- Original text: "${m.original_text||''}"\n- Stochastic text: "${m.stochastic_text||''}"\n- Color: ${m.color||''} (${m.hex||''})  Shape: ${m.shape||''}\n- Matrice verbs: ${m.matrice1||''} / ${m.matrice||''}\n- Resonant words: ${(m.words||[]).join(', ')}\n- Reasoning: ${m.reasoning||''}\n- Astro notes: ${(m.astro_notes||[]).join(' | ')}\n- Resonant dates: ${(m.dates||[]).map(function(d){return d.date+' '+d.label;}).join(' | ')}\n- Weights used: astro=${w.astro||0}% past=${w.past||0}% stochastic=${w.stochastic||0}%\nUse this history as ${pastW}% gravitational pull on the new classification.`;
+        content.push({type:"text", text: manifestText});
+        // also send thumbnail image if available
+        if(img.base64){
+          content.push({type:"image",source:{type:"base64",media_type:"image/png",data:img.base64}});
+        }
+      } else {
+        // plain image
+        content.push({type:"text", text:`Past version ${i+1} (image, weight: ${pastW}%):`});
+        if(img.base64){
+          content.push({type:"image",source:{type:"base64",media_type:img.mimeType,data:img.base64}});
+        }
+      }
+    });
+    content.push({type:"text", text:`\nNew intention to classify: "${text}"`});
+  } else {
+    content.push({type:"text", text:`Classify: "${text}"`});
+  }
+
+  return [{role:"user", content}];
+}
+
+// ═══════════════════════════════════════════════════
+// MANIFEST — save & download
+// ═══════════════════════════════════════════════════
+function captureCanvas(){
+  try{
+    const cnv = document.querySelector('#canvas-wrap canvas');
+    if(!cnv) return null;
+    // downscale to reasonable thumbnail
+    const thumb = document.createElement('canvas');
+    thumb.width = 400; thumb.height = Math.round(400 * cnv.height / cnv.width);
+    thumb.getContext('2d').drawImage(cnv, 0, 0, thumb.width, thumb.height);
+    return thumb.toDataURL('image/png', 0.7);
+  }catch(e){ return null; }
+}
+
+function downloadManifest(){
+  if(!lastResult) return;
+  const entry = MATRICE.find(m=>m.name===lastResult.color)||MATRICE[0];
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+  const manifest = {
+    _type: "la-matrice-session",
+    _version: 1,
+    recorded_at: dateStr,
+    recorded_ts: now.toISOString(),
+    original_text: document.getElementById('txt').value.trim(),
+    stochastic_text: lastResult.stochastic_text || '',
+    color: lastResult.color,
+    hex: entry.hexDisplay || entry.hex,
+    shape: lastResult.shape,
+    matrice1: lastResult.matrice1,
+    matrice: lastResult.matrice,
+    words: lastResult.words || [],
+    confidence: lastResult.confidence,
+    reasoning: lastResult.reasoning,
+    astro_notes: lastResult.astro_notes || [],
+    dates: lastResult.dates || [],
+    weights: {
+      astro: +document.getElementById('sl-astro').value,
+      past:  +document.getElementById('sl-past').value,
+      stochastic: +document.getElementById('sl-stoch').value
+    },
+    canvas_thumbnail: lastCanvasDataUrl || null
+  };
+
+  const slug = (manifest.original_text.slice(0,24).replace(/[^a-z0-9]+/gi,'-').toLowerCase()) || 'intention';
+  const filename = `${dateStr}_${manifest.color}_${slug}.matrice`;
+  const blob = new Blob([JSON.stringify(manifest, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+document.getElementById('download-btn').addEventListener('click', downloadManifest);
+
+// ═══════════════════════════════════════════════════
+// UI — classify
+// ═══════════════════════════════════════════════════
+const btn=document.getElementById('classify-btn');
+const clearBtn=document.getElementById('clear-btn');
+const statusEl=document.getElementById('status');
+const resultBlock=document.getElementById('result-block');
+
+function setStatus(msg,cls=''){statusEl.textContent=msg;statusEl.className='status'+(cls?' '+cls:'');}
+
+btn.addEventListener('click',async()=>{
+  const text=document.getElementById('txt').value.trim();
+  if(!text){setStatus('enter intention text first','error');return;}
+  btn.disabled=true;
+  setStatus('reading la matrice · weighing planets…','active');
+  resultBlock.classList.remove('visible');
+  document.getElementById('stoch-out').classList.remove('visible');
+
+  const astroW=+document.getElementById('sl-astro').value;
+  const pastW=+document.getElementById('sl-past').value;
+  const stochW=+document.getElementById('sl-stoch').value;
+  const hasPast=uploadedImages.length>0;
+
+  try{
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:2000,
+        system:buildSystem(astroW,pastW,stochW,hasPast),
+        messages:buildMessages(text)
+      })
+    });
+    const data=await resp.json();
+    const raw=data.content.map(b=>b.text||"").join("").trim().replace(/```json|```/g,"").trim();
+    const result=JSON.parse(raw);
+    lastResult = result;
+
+    const entry=MATRICE.find(m=>m.name===result.color)||MATRICE[0];
+    const dh=entry.hexDisplay||entry.hex;
+    currentEntry=entry;
+
+    // spawn particles
+    const cnv=document.querySelector('#canvas-wrap canvas');
+    const W=cnv.offsetWidth,H=cnv.offsetHeight;
+    const count=Math.round(6+result.confidence*10);
+    spawnMain(entry,count,W,H);
+    spawnGhosts(entry,count,W,H,pastW);
+
+    // capture canvas snapshot slightly delayed (after particles start appearing)
+    setTimeout(()=>{ lastCanvasDataUrl = captureCanvas(); }, 800);
+
+    // stochastic text
+    const stochEl=document.getElementById('stoch-out');
+    if(result.stochastic_text){
+      stochEl.textContent=result.stochastic_text;
+      stochEl.classList.add('visible');
+    }
+
+    // result panel
+    document.getElementById('result-bar').style.background=`linear-gradient(90deg,${dh},transparent)`;
+    document.getElementById('result-shape').style.color=dh;
+    document.getElementById('result-shape').textContent=`${entry.name} · ${result.shape}`;
+    document.getElementById('result-matrice').textContent=`${result.matrice1} / ${result.matrice}`;
+    document.getElementById('result-words').textContent=(result.words||[]).join(' · ');
+    document.getElementById('result-reasoning').textContent=result.reasoning;
+
+    // astro badges
+    const astroRow=document.getElementById('astro-row');
+    astroRow.innerHTML='';
+    (result.astro_notes||[]).forEach(note=>{
+      const b=document.createElement('div');b.className='astro-badge';b.textContent=note;
+      astroRow.appendChild(b);
+    });
+
+    // dates
+    const dg=document.getElementById('dates-grid');
+    dg.innerHTML='';
+    (result.dates||[]).forEach(d=>{
+      const pill=document.createElement('div');pill.className='date-pill';
+      pill.innerHTML=`<span class="date-num">${d.date}</span><span class="date-label">${d.label}</span>`;
+      pill.title=d.why||'';
+      dg.appendChild(pill);
+    });
+
+    // manifest badge — show color dot
+    const badge = document.getElementById('manifest-badge');
+    const dot = document.getElementById('manifest-dot');
+    const lbl = document.getElementById('manifest-label');
+    dot.style.background = dh;
+    lbl.textContent = entry.name;
+    badge.style.display = 'flex';
+
+    resultBlock.classList.add('visible');
+    setStatus(`→ ${entry.name} · ${result.shape} · ${Math.round(result.confidence*100)}% · astro ${astroW}%`);
+  }catch(err){
+    console.error(err);setStatus('classification error — check console','error');
+  }
+  btn.disabled=false;
+});
+
+clearBtn.addEventListener('click',()=>{
+  particles=[];currentEntry=null;lastResult=null;lastCanvasDataUrl=null;
+  resultBlock.classList.remove('visible');
+  document.getElementById('stoch-out').classList.remove('visible');
+  document.getElementById('manifest-badge').style.display='none';
+  setStatus('field cleared');
+});
+</script>
+</body>
+</html>
